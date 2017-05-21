@@ -31,24 +31,13 @@ func New(qChan qtypes.QChan, cfg *config.Config, name string) (p Plugin, err err
 func (p *Plugin) Run() {
 	p.Log("notice", fmt.Sprintf("Start plugin v%s", p.Version))
 	dc := p.QChan.Data.Join()
-	inputs := p.GetInputs()
-	srcSuccess := p.CfgBoolOr("source-success", true)
 	for {
 		select {
 		case val := <-dc.Read:
 			switch val.(type) {
 			case qtypes.Message:
 				msg := val.(qtypes.Message)
-				if msg.IsLastSource(p.Name) {
-					p.Log("debug", "IsLastSource() = true")
-					continue
-				}
-				if len(inputs) != 0 && ! msg.InputsMatch(inputs) {
-					p.Log("debug", fmt.Sprintf("InputsMatch(%v) = false", inputs))
-					continue
-				}
-				if msg.SourceSuccess != srcSuccess {
-					p.Log("debug", "qcs.SourceSuccess != srcSuccess")
+				if p.StopProcessingMessage(msg, false) {
 					continue
 				}
 				name, nok := msg.KV["name"]
@@ -68,7 +57,7 @@ func (p *Plugin) Run() {
 							}
 						}
 					}
-					p.Log("debug", "send metric")
+					p.Log("trace", "send metric")
 					p.QChan.Data.Send(met)
 				}
 			}
