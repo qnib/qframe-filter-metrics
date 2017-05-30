@@ -16,6 +16,19 @@ const (
 	pluginPkg = "metric"
 )
 
+var (
+	containerStates = map[string]float64{
+		"create": 1.0,
+		"start": 2.0,
+		"healthy": 3.0,
+		"unhealthy": 4.0,
+		"kill": -1.0,
+		"die": -2.0,
+		"stop": -3.0,
+		"destroy": -4.0,
+	}
+)
+
 type Plugin struct {
 	qtypes.Plugin
 }
@@ -60,7 +73,38 @@ func (p *Plugin) Run() {
 					p.Log("trace", "send metric")
 					p.QChan.Data.Send(met)
 				}
+			case qtypes.ContainerEvent:
+				ce := val.(qtypes.ContainerEvent)
+				if p.StopProcessingCntEvent(ce, false) {
+					continue
+				}
+				switch ce.Event.Type {
+				case "container":
+					p.handleContainerEvent(ce)
+				}
 			}
 		}
+	}
+}
+
+func (p *Plugin) handleContainerEvent(ce qtypes.ContainerEvent) {
+	if strings.HasPrefix(ce.Event.Action, "exec_") {
+		p.MsgCount["execEvent"]++
+		return
+	}
+	action := ce.Event.Action
+	if strings.HasPrefix(ce.Event.Action, "health_status") {
+		action = strings.Split(ce.Event.Action, ":")[1]
+	}
+	action = strings.Trim(action, " ")
+	dims := qtypes.AssembleJSONDefaultDimensions(&ce.Container)
+	p.Log("info", fmt.Sprintf("Action '%s' by %v", action, dims))
+	if mval, ok := containerStates[action]; ok {
+		met := qtypes.NewExt(p.Name, "container.state", qtypes.Gauge, mval, dims, ce.Time, false)
+		p.QChan.Data.Send(met)
+	} else {
+		p.Log("warn", fmt.Sprintf("Could not fetch '%s' from containerState", action))
+		met := qtypes.NewExt(p.Name, "container.state", qtypes.Gauge, 0.0, dims, ce.Time, false)
+		p.QChan.Data.Send(met)
 	}
 }
