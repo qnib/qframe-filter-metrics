@@ -98,13 +98,14 @@ func (p *Plugin) handleContainerEvent(ce qtypes.ContainerEvent) {
 	}
 	action = strings.Trim(action, " ")
 	dims := qtypes.AssembleJSONDefaultDimensions(&ce.Container)
+	dims["state-type"] = "container"
 	p.Log("info", fmt.Sprintf("Action '%s' by %v", action, dims))
 	if mval, ok := containerStates[action]; ok {
-		met := qtypes.NewExt(p.Name, "container.state", qtypes.Gauge, mval, dims, ce.Time, false)
+		met := qtypes.NewExt(p.Name, "state", qtypes.Gauge, mval, dims, ce.Time, false)
 		p.QChan.Data.Send(met)
 	} else {
 		p.Log("warn", fmt.Sprintf("Could not fetch '%s' from containerState", action))
-		met := qtypes.NewExt(p.Name, "container.state", qtypes.Gauge, 0.0, dims, ce.Time, false)
+		met := qtypes.NewExt(p.Name, "state", qtypes.Gauge, 0.0, dims, ce.Time, false)
 		p.QChan.Data.Send(met)
 	}
 }
