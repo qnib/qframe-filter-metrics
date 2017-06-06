@@ -59,7 +59,8 @@ func (p *Plugin) Run() {
 				if nok && tok && vok {
 					mval, _ := strconv.ParseFloat(value, 64)
 					tint, _ := strconv.Atoi(tval)
-					dims := map[string]string{}
+					dims := qtypes.AssembleJSONDefaultDimensions(&msg.Container)
+					dims["source"] = msg.GetLastSource()
 					met := qtypes.NewExt(p.Name, name, qtypes.Gauge, mval, dims, time.Unix(int64(tint), 0), true)
 					tags, tagok := msg.KV["tags"]
 					if tagok {
